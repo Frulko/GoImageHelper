@@ -10,18 +10,23 @@ import (
     "encoding/json"
     "path/filepath"
 	"io/ioutil"
+	"strings"
 )
 
+const version string = "0.1.0"
+
 type Output struct {
+	Version string `json:"version"`
 	Result bool `json:"result"`
 	Message string `json:"message"`
+	Code string `json:"code"`
 }
 
 type Assets struct {
     Assets []string `json:"assets"`
 }
 
-type test struct {
+type ExchangeGenerate struct {
 	Canvas Canvas `json:"canvas"`
 	Assets []ImageAsset `json:"assets"`
 }
@@ -47,70 +52,42 @@ func main() {
     //img_path := "rainy.png";
 	//
 
-
-
     if len(os.Args) <= 1  {
-		log(false, "Specify a command")
+		log(false, "Specify a command", "50")
         os.Exit(0);
     }
 
+
+
     cmd := os.Args[1]
-	if cmd == "infos" {
-		if len(os.Args) == 2  {
-			log(false, "Specify a JSON file")
-			os.Exit(0);
+	available_cmd := []string{"infos","generate", "version"}
+	if(!stringInSlice(cmd, available_cmd)) {
+		var commands string = "";
+		for index,el := range available_cmd {
+			sep := ","
+			if(len(available_cmd)-1 <= index){
+				sep = ""
+			}
+			commands += el+sep+" "
+		}
+		log(false, "Specify a valid command (valid command : "+commands+")", "51")
+		os.Exit(0);
+	}else{
+
+
+		switch cmd {
+		case "infos":
+			getInformations()
+		case "generate":
+			generateCanvas()
+		case "version":
+			getVersion()
+		default:
+			log(true, "Do nothing", "20")
 		}
 
-		exchange_filename := os.Args[2]
-		res := loadExchangeFileJsonData(exchange_filename)
-		glob := getImagesInformations(res.Assets)
-		writeOutImagesInformations(glob, exchange_filename)
-
-
-	} else if cmd == "generate" {
-
-
-		if len(os.Args) == 2  {
-			log(false, "Specify a JSON file")
-			os.Exit(0);
-		}
-
-		exchange_filename := os.Args[2]
-		//res := loadExchangeFileJsonData(exchange_filename)
-		file, e := ioutil.ReadFile(exchange_filename)
-		if e != nil {
-			log(false, "error loading xchange file")
-			os.Exit(0)
-		}
-		str := string(file)
-
-		res := &test{}
-		json.Unmarshal([]byte(str), &res)
-
-
-		m := image.NewRGBA(image.Rect(0, 0, res.Canvas.Width, res.Canvas.Height))
-
-		for _,el := range res.Assets {
-			fImg2, _ := os.Open(el.Image)
-			defer fImg2.Close()
-			img2, _, _ := image.Decode(fImg2)
-
-			posX := el.Top * -1
-			posY := el.Left * -1
-
-			draw.Draw(m, m.Bounds(), img2, image.Point{posY,posX}, draw.Src)
-		}
-
-
-
-		toimg, _ := os.Create(res.Canvas.Name)
-		defer toimg.Close()
-		png.Encode(toimg, m)
-		log(true, "Generate Canvas")
 
 	}
-
-
 
 
 
@@ -136,6 +113,7 @@ func getImagesInformations(images []string) (ImageAssets) {
 	for _,image_path := range images {
 		img_path, _ := filepath.Abs(image_path)
 		width, height, validate := getImageDimension(img_path)
+
 		asset := &ImageAsset{ Image: img_path, Width: width, Height: height, Valid: validate, Top: 0, Left: 0}
 		t_images = append(t_images , asset)
 	}
@@ -145,13 +123,13 @@ func getImagesInformations(images []string) (ImageAssets) {
 
 func loadExchangeFileJsonData(filename string) (*Assets){
 	if filepath.Ext(filename) != ".json"{
-		log(false, "Specify a JSON file")
+		log(false, "Specify a JSON file", "52")
 		os.Exit(0)
 	}
 
 	file, e := ioutil.ReadFile(filename)
 	if e != nil {
-		log(false, "error loading xchange file")
+		log(false, "error loading xchange file", "55")
 		os.Exit(0)
 	}
 	str := string(file)
@@ -161,29 +139,173 @@ func loadExchangeFileJsonData(filename string) (*Assets){
 	return res
 }
 
-func log(state bool, message string){
-	res1B, e := json.Marshal(Output{state, message})
+func log(state bool, message string, optional ...string){
+
+
+	code := "00"
+
+	if(len(optional) > 1){
+		log(false, "Log too much args", "50")
+		os.Exit(0)
+	}else if len(optional) == 1 {
+		code = optional[0]
+	}
+
+
+	res1B, e := json.Marshal(Output{version, state, message, code})
 	if e != nil {
-		log(false, "Error while encode JSON")
+		log(false, "Error while encode JSON", "54")
 		os.Exit(0)
 	}
 	fmt.Println(string(res1B))
+}
+
+func getVersion(){
+	log(true, "GoImageHelper", "20")
 }
 
 func writeOutImagesInformations(assets ImageAssets, filename string){
 
 	json_encoded, e := json.Marshal(assets)
 	if e != nil {
-		log(false, "Error while encode JSON")
+		log(false, "Error while encode JSON for ImageInformations", "54")
 		os.Exit(0)
 	}
 
 	converted_json := []byte(json_encoded);
+	var file_base string = filepath.Base(filename)
 	err := ioutil.WriteFile(filename, converted_json, 0644)
 	if err != nil {
-		log(false, "Error on write JSON file")
+		log(false, "Error on write JSON file for : "+file_base, "53")
 		os.Exit(0)
 	}
 
-	log(true, "task complete")
+	log(true, "task complete", "21")
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
+func getInformations(){
+	if(hasAJSONFile()){
+		exchange_filename := os.Args[2]
+		res := loadExchangeFileJsonData(exchange_filename)
+		glob := getImagesInformations(res.Assets)
+		writeOutImagesInformations(glob, exchange_filename)
+	}
+}
+
+func generateCanvas() {
+	if(hasAJSONFile()){
+		exchange_filename := os.Args[2]
+		//res := loadExchangeFileJsonData(exchange_filename)
+		file, e := ioutil.ReadFile(exchange_filename)
+		if e != nil {
+			log(false, "error loading xchange file", "55")
+			os.Exit(0)
+		}
+		str := string(file)
+
+		res := &ExchangeGenerate{}
+
+		err := json.Unmarshal([]byte(str), &res)
+		if err != nil {
+			log(false, "error JSON Parse", "40")
+			os.Exit(0)
+		}
+
+
+		if(len(res.Canvas.Name) < 1 && len(res.Assets) < 1){
+			log(false, "Error in JSON structure", "47")
+			os.Exit(0)
+		}
+
+		if(len(res.Canvas.Name) < 1){
+			log(false, "Specify a valid output name", "41")
+			os.Exit(0)
+		}
+
+		if(res.Canvas.Width < 1 || res.Canvas.Height < 1){
+			log(false, "Specify a valid size of output file", "42")
+			os.Exit(0)
+		}
+
+		if(len(res.Assets) < 1){
+			log(false, "Error no assets was specified", "46")
+			os.Exit(0)
+		}
+
+
+
+		canvas := image.NewRGBA(image.Rect(0, 0, res.Canvas.Width, res.Canvas.Height))
+
+		ext := []string{".png",".jpg",".jpeg"}
+
+		for _,el := range res.Assets {
+
+			var file_extension string = strings.ToLower(filepath.Ext(el.Image))
+			var file_base string = filepath.Base(el.Image)
+
+			if(len(el.Image) < 1){
+				log(false, "There is an error in your JSON 'assets' structure", "47")
+				os.Exit(0)
+			}
+
+			if(!stringInSlice(file_extension, ext)) {
+				log(false, "error extension '"+ file_extension +"' of '" + file_base + "' is not a valid image", "43")
+				os.Exit(0)
+			}
+
+			file, err := os.Open(el.Image)
+			if err != nil {
+				log(false, "error when opening file " + file_base, "44")
+				os.Exit(0)
+			}
+			defer file.Close()
+			loaded_image, _, err := image.Decode(file)
+			if err != nil {
+				log(false, "error when decoding image " +file_base, "45")
+				os.Exit(0)
+			}
+
+			posX := el.Top * -1
+			posY := el.Left * -1
+
+			draw.Draw(canvas, canvas.Bounds(), loaded_image, image.Point{posY,posX}, draw.Src)
+		}
+
+
+
+		output_canvas, err := os.Create(res.Canvas.Name)
+
+		if err != nil {
+			log(false, "error save PNG Canvas", "56")
+			os.Exit(0)
+		}
+
+		defer output_canvas.Close()
+		err = png.Encode(output_canvas, canvas)
+		if err != nil {
+			log(false, "error write image to PNG format", "57")
+			os.Exit(0)
+		}
+
+		log(true, "Generate Canvas", "22")
+
+	}
+}
+
+func hasAJSONFile() bool{
+	if len(os.Args) == 2  {
+		log(false, "Specify a JSON file")
+		os.Exit(0);
+	}
+
+	return true
 }
