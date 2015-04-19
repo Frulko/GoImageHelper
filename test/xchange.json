@@ -1,0 +1,23 @@
+{
+  "canvas": {
+    "name": "sprite.png",
+    "width": 128,
+    "height": 64
+  },
+  "assets": [
+    {
+      "filename": "test/arrow1.PNG",
+      "width": 64,
+      "height": 64,
+      "top": 0,
+      "left": 0
+    },
+    {
+      "filename": "test/arrow2.png",
+      "width": 64,
+      "height": 64,
+      "top": 0,
+      "left": 64
+    }
+  ]
+}
