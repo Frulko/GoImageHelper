@@ -96,13 +96,11 @@ func main() {
 func getImageDimension(imagePath string) (int, int, bool) {
 	validate := true
     file, err := os.Open(imagePath)
-    if err != nil {
-        validate = false
-    }
+    if(err != nil) {validate = false}
+
     image, _, err := image.DecodeConfig(file)
-    if err != nil {
-		validate = false
-    }
+    if(err != nil) {validate = false}
+
     return image.Width, image.Height, validate
 }
 
@@ -127,11 +125,8 @@ func loadExchangeFileJsonData(filename string) (*Assets){
 		os.Exit(0)
 	}
 
-	file, e := ioutil.ReadFile(filename)
-	if e != nil {
-		log(false, "error loading xchange file", "55")
-		os.Exit(0)
-	}
+	file, err := ioutil.ReadFile(filename)
+	crash(err, "error loading xchange file", "55")
 	str := string(file)
 	res := &Assets{}
 	json.Unmarshal([]byte(str), res)
@@ -151,13 +146,9 @@ func log(state bool, message string, optional ...string){
 		code = optional[0]
 	}
 
-
-	res1B, e := json.Marshal(Output{version, state, message, code})
-	if e != nil {
-		log(false, "Error while encode JSON", "54")
-		os.Exit(0)
-	}
-	fmt.Println(string(res1B))
+	json_result, err := json.Marshal(Output{version, state, message, code})
+	crash(err, "Error while encode JSON", "54")
+	fmt.Println(string(json_result))
 }
 
 func getVersion(){
@@ -166,19 +157,12 @@ func getVersion(){
 
 func writeOutImagesInformations(assets ImageAssets, filename string){
 
-	json_encoded, e := json.Marshal(assets)
-	if e != nil {
-		log(false, "Error while encode JSON for ImageInformations", "54")
-		os.Exit(0)
-	}
+	json_encoded, err := json.Marshal(assets)
+	crash(err, "Error while encode JSON for ImageInformations", "54")
 
 	converted_json := []byte(json_encoded);
 	var file_base string = filepath.Base(filename)
-	err := ioutil.WriteFile(filename, converted_json, 0644)
-	if err != nil {
-		log(false, "Error on write JSON file for : "+file_base, "53")
-		os.Exit(0)
-	}
+	crash(ioutil.WriteFile(filename, converted_json, 0644), "Error on write JSON file for : "+file_base, "53")
 
 	log(true, "task complete", "21")
 }
@@ -204,21 +188,15 @@ func getInformations(){
 func generateCanvas() {
 	if(hasAJSONFile()){
 		exchange_filename := os.Args[2]
-		//res := loadExchangeFileJsonData(exchange_filename)
-		file, e := ioutil.ReadFile(exchange_filename)
-		if e != nil {
-			log(false, "error loading xchange file", "55")
-			os.Exit(0)
-		}
+		file, err := ioutil.ReadFile(exchange_filename)
+		crash(err, "error loading xchange file", "55")
+
 		str := string(file)
 
 		res := &ExchangeGenerate{}
 
-		err := json.Unmarshal([]byte(str), &res)
-		if err != nil {
-			log(false, "error JSON Parse", "40")
-			os.Exit(0)
-		}
+		crash(json.Unmarshal([]byte(str), &res), "error JSON Parse", "40")
+
 
 
 		if(len(res.Canvas.Name) < 1 && len(res.Assets) < 1){
@@ -263,16 +241,12 @@ func generateCanvas() {
 			}
 
 			file, err := os.Open(el.Image)
-			if err != nil {
-				log(false, "error when opening file " + file_base, "44")
-				os.Exit(0)
-			}
+			crash(err, "error when opening file " + file_base, "44")
+
 			defer file.Close()
+
 			loaded_image, _, err := image.Decode(file)
-			if err != nil {
-				log(false, "error when decoding image " +file_base, "45")
-				os.Exit(0)
-			}
+			crash(err, "error when decoding image " +file_base, "45")
 
 			posX := el.Top * -1
 			posY := el.Left * -1
@@ -283,18 +257,11 @@ func generateCanvas() {
 
 
 		output_canvas, err := os.Create(res.Canvas.Name)
-
-		if err != nil {
-			log(false, "error save PNG Canvas", "56")
-			os.Exit(0)
-		}
+		crash(err, "error save PNG Canvas", "56")
 
 		defer output_canvas.Close()
 		err = png.Encode(output_canvas, canvas)
-		if err != nil {
-			log(false, "error write image to PNG format", "57")
-			os.Exit(0)
-		}
+		crash(err, "error write image to PNG format", "57")
 
 		log(true, "Generate Canvas", "22")
 
@@ -308,4 +275,11 @@ func hasAJSONFile() bool{
 	}
 
 	return true
+}
+
+func crash(err error, msg string, code string){
+	if err != nil {
+		log(false, msg, code)
+		os.Exit(0)
+	}
 }
